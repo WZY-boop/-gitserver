@@ -83,7 +83,7 @@ cd "d:\Python\Python project\claude code"
 python Server.py
 ```
 
-首次启动时，如果启用了密码保护，需要输入管理员密码（默认：`wen6927`）。
+首次启动时，如果启用了密码保护，需要输入管理员密码（默认：`54server`）。
 
 ## 管理员命令
 
