@@ -424,7 +424,6 @@ def admin_console():
                 time.sleep(1)
 
                 # 优雅关闭所有连接
-                global server_running
                 server_running = False
                 with data_lock:
                     for sock, _, _, _ in clients_data[:]:
