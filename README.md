@@ -1,9 +1,9 @@
-[README.md](https://github.com/user-attachments/files/24211876/README.md)
-# Python 聊天服务器 v9.0
+# Python 聊天服务器 v9.1
 
 [![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-9.0-orange.svg)](https://github.com/yourusername/chat-server)
+[![Version](https://img.shields.io/badge/version-9.1-orange.svg)](https://github.com/yourusername/chat-server)
+[![Protocol](https://img.shields.io/badge/protocol-1.0.0-purple.svg)](API.md)
 
 一个功能完整、安全可靠的多线程 TCP 聊天服务器，支持实时消息、私聊、文件传输、管理员控制台等功能。
 
@@ -19,7 +19,7 @@
 
 ### 管理功能
 - 🎛️ 强大的管理员控制台
-- 🔐 密码保护（SHA256 哈希验证）
+- 🔐 密码保护（bcrypt 安全哈希）
 - 🚫 IP 黑名单管理
 - 🔇 用户禁言（个人/全员）
 - 📊 实时监控面板
@@ -29,19 +29,23 @@
 ### 安全特性
 - 🛡️ 文件大小限制（10MB）
 - ✅ 文件类型白名单验证
-- 🔒 文件名安全过滤（防路径遍历）
-- 🚦 连接数限制（防止资源耗尽）
-- 💓 心跳检测（自动清理僵尸连接）
-- 🔍 消息内容过滤和长度限制
+- 🔒 文件名安全过滤（防路径遍历 + Unicode 规范化）
+- 🚦 连接数限制 + 速率限制（防 DDoS）
+- 💓 动态心跳检测（自动清理僵尸连接）
+- 🔍 Aho-Corasick 高效敏感词过滤
 - 💾 数据持久化（黑名单/禁言列表）
 - 📋 详细的审计日志
 - ⚡ O(1) 私聊查找优化
+- 🆔 消息ID + 协议版本号支持
+- 🔐 bcrypt 密码哈希（替代 SHA256）
 
 ## 快速开始
 
 ### 环境要求
 - Python 3.7+
-- 依赖模块：`chat_protocol`（需自行实现或提供）
+- 依赖模块：
+  - `bcrypt` - 密码哈希（`pip install bcrypt`）
+  - `chat_protocol` - 消息协议模块（已包含）
 
 ### 安装
 
@@ -50,9 +54,16 @@
 cd "d:\Python\Python project\claude code"
 ```
 
-2. 确保 `chat_protocol.py` 存在并实现了以下函数：
-   - `send_packet(socket, dict)` - 发送消息包
+2. 安装依赖：
+```bash
+pip install bcrypt
+```
+
+3. `chat_protocol.py` 已包含以下功能：
+   - `send_packet(socket, dict)` - 发送消息包（自动添加消息ID和协议版本）
    - `recv_packet(socket)` - 接收消息包
+   - `PROTOCOL_VERSION` - 协议版本号（当前：1.0.0）
+   - `generate_message_id()` - 生成唯一消息ID
 
 ### 配置
 
@@ -66,14 +77,15 @@ cd "d:\Python\Python project\claude code"
     "max_connections": 50
   },
   "admin": {
-    "password": "your_password_here",
+    "password_hash": "$2b$12$...(bcrypt哈希值)",
     "password_enabled": true
   },
   "security": {
     "enable_message_filter": true,
     "max_message_length": 1000,
     "heartbeat_interval": 30,
-    "heartbeat_timeout": 90
+    "heartbeat_timeout": 90,
+    "file_expire_hours": 24
   },
   "logging": {
     "level": "INFO",
@@ -88,13 +100,16 @@ cd "d:\Python\Python project\claude code"
 }
 ```
 
+> **注意**：首次运行时可使用明文 `password` 字段，服务器会自动生成 bcrypt 哈希并提示更新配置。
+
 ### 启动服务器
 
 ```bash
 python Server.py
 ```
 
-首次启动时，如果启用了密码保护，需要输入管理员密码（默认：`54server`）。
+首次启动时，如果启用了密码保护，需要输入管理员密码（默认：`123456`）。
+你需要自己创建一个bcrypt哈希密码（没有现成的，你们可以自己写）
 
 ## 🎛️ 管理员命令
 
@@ -139,8 +154,9 @@ python Server.py
 $ python Server.py
 
 ============================================================
-   🚀 Python 聊天服务器 v9.0 (Enhanced Security Edition)
+   🚀 Python 聊天服务器 v9.1 (Enhanced Security Edition)
    🌍 监听地址: 0.0.0.0:3000
+   📡 协议版本: 1.0.0
    📊 最大连接数: 50
    🔐 管理员密码保护: 启用
    📁 文件大小限制: 10.0MB
@@ -189,8 +205,8 @@ ban 192.168.1.101
 
 ```
 chat-server/
-├── Server.py              # 主服务器程序 (v9.0)
-├── chat_protocol.py       # 消息协议模块（需自行实现）
+├── Server.py              # 主服务器程序 (v9.1)
+├── chat_protocol.py       # 消息协议模块（含版本号和消息ID）
 ├── config.json            # 配置文件
 ├── server.log             # 日志文件（自动生成）
 ├── server_temp_files/     # 临时文件目录（自动生成）
@@ -225,11 +241,12 @@ chat-server/
 
 ## 安全建议
 
-1. **修改默认密码**：编辑 `config.json`，修改 `admin.password`
+1. **使用 bcrypt 密码哈希**：首次运行后，将生成的哈希值更新到 `config.json` 的 `password_hash` 字段
 2. **限制访问**：使用防火墙限制可访问的 IP 范围
 3. **定期备份**：备份配置文件和数据文件
 4. **监控日志**：定期检查 `server.log` 查找异常活动
 5. **更新依赖**：保持 Python 和依赖库为最新版本
+6. **文件过期**：配置合理的 `file_expire_hours` 自动清理过期文件
 
 ## 性能优化
 
@@ -256,6 +273,23 @@ chat-server/
 查看 [DEPLOYMENT.md](DEPLOYMENT.md) 了解生产环境部署的最佳实践。
 
 ## 📊 版本历史
+
+### v9.1 (2025-12-24) - Security Hardening Edition
+**安全加固：**
+- 🔐 使用 bcrypt 替代 SHA256 进行密码哈希
+- 🛡️ 文件名验证增强（Unicode 规范化、危险字符过滤）
+- 🔒 修复私聊竞态条件（发送前检查连接状态）
+- 🧹 修复资源泄漏（确保 socket 正确关闭）
+- 📝 细化异常处理类型（避免捕获所有异常）
+
+**性能优化：**
+- ⚡ Aho-Corasick 算法优化敏感词过滤（O(n+m) 复杂度）
+- ⏱️ 动态心跳检测间隔（根据超时时间自动调整）
+- 🧹 定期清理连接记录（防止内存泄漏）
+
+**协议改进：**
+- 🆔 添加消息ID支持（唯一标识每条消息）
+- 📡 添加协议版本号（1.0.0）
 
 ### v9.0 (2025-12-17) - Enhanced Security Edition
 **新增功能：**
@@ -302,7 +336,9 @@ chat-server/
 - **架构**: 多线程 TCP Socket
 - **日志**: logging + RotatingFileHandler
 - **数据**: JSON 持久化
-- **安全**: SHA256 密码哈希
+- **安全**: bcrypt 密码哈希
+- **算法**: Aho-Corasick 敏感词过滤
+- **协议**: 自定义二进制协议（4字节长度头 + JSON）
 
 ## 📈 性能指标
 
@@ -310,9 +346,12 @@ chat-server/
 |------|------|
 | 最大并发连接 | 50（可配置） |
 | 文件大小限制 | 10MB |
-| 心跳超时 | 90秒 |
+| 心跳检测间隔 | 动态（5-30秒） |
+| 心跳超时 | 90秒（可配置） |
 | 日志轮转 | 10MB/文件 |
 | 私聊查找 | O(1) |
+| 敏感词过滤 | O(n+m) Aho-Corasick |
+| 协议版本 | 1.0.0 |
 
 ## 🤝 贡献
 
